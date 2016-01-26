@@ -1,0 +1,32 @@
+{
+  "name": "nilportugues/repository-cache",
+  "description": "Implementation of a base repository with cache layer using StashPHP",
+  "keywords": ["cache", "ddd", "hexagonal", "ports and adapters", "ports", "adapters", "repository", "pageable", "pagination", "nil portugues", "nilportugues"],
+  "type": "library",
+  "homepage": "http://nilportugues.com",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Nil Portugués",
+      "email": "contact@nilportugues.com"
+    }
+  ],
+  "require": {
+    "nilportugues/repository": "^1.1",
+    "tedivm/stash": "0.13.*"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "4.8.*",
+    "fabpot/php-cs-fixer": "1.9.*"
+  },
+  "autoload": {
+    "psr-4": {
+      "NilPortugues\\Foundation\\Infrastructure\\Model\\Repository\\Cache\\": "src"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "NilPortugues\\Tests\\Foundation\\Infrastructure\\Model\\Repository\\Cache\\": "tests/"
+    }
+  }
+}
