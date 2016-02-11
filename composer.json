@@ -12,7 +12,7 @@
     }
   ],
   "require": {
-    "nilportugues/repository": "^1.1",
+    "nilportugues/repository": "2.0.*",
     "tedivm/stash": "0.13.*"
   },
   "require-dev": {
