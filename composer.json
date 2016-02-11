@@ -28,5 +28,9 @@
     "psr-4": {
       "NilPortugues\\Tests\\Foundation\\Infrastructure\\Model\\Repository\\Cache\\": "tests/"
     }
+  },
+  "suggest" : {
+      "nilportugues/eloquent-repository": "Eloquent ORM repository implementation.",
+      "nilportugues/filesystem-repository": "FileSystem repository implementation."
   }
 }
