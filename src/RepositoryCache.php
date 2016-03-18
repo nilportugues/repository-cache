@@ -18,12 +18,13 @@ use NilPortugues\Foundation\Domain\Model\Repository\Contracts\PageRepository;
 use NilPortugues\Foundation\Domain\Model\Repository\Contracts\ReadRepository;
 use NilPortugues\Foundation\Domain\Model\Repository\Contracts\Sort;
 use NilPortugues\Foundation\Domain\Model\Repository\Contracts\WriteRepository;
+use Psr\Cache\CacheItemPoolInterface;
 use Stash\Interfaces\PoolInterface;
 
 class RepositoryCache implements ReadRepository, WriteRepository, PageRepository
 {
     /**
-     * @var PoolInterface
+     * @var CacheItemPoolInterface
      */
     protected $cache;
     /**
@@ -226,15 +227,10 @@ class RepositoryCache implements ReadRepository, WriteRepository, PageRepository
     /**
      * {@inheritdoc}
      */
-    public function findByDistinct(
-        Fields $distinctFields,
-        Filter $filter = null,
-        Sort $sort = null,
-        Fields $fields = null
-    ) {
+    public function findByDistinct(Fields $distinctFields, Filter $filter = null, Sort $sort = null) {
         $cachedItem = $this->cache->getItem(
             $this->cacheNamespaceFindByDistinct.md5(
-                serialize($filter).serialize($sort).serialize($fields).serialize($distinctFields)
+                serialize($filter).serialize($sort).serialize($distinctFields)
             )
         );
 
@@ -242,7 +238,7 @@ class RepositoryCache implements ReadRepository, WriteRepository, PageRepository
             return $result;
         }
 
-        $result = $this->repository->findByDistinct($distinctFields, $filter, $sort, $fields);
+        $result = $this->repository->findByDistinct($distinctFields, $filter, $sort);
         $cachedItem->set($result, $this->cacheTime);
 
         return $result;
