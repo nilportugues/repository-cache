@@ -41,6 +41,10 @@ class RepositoryCache implements ReadRepository, WriteRepository, PageRepository
     /**
      * @var string
      */
+    protected $cacheNamespaceFindByDistinct;
+    /**
+     * @var string
+     */
     protected $cacheNamespacePage;
     /**
      * @var string
@@ -82,6 +86,7 @@ class RepositoryCache implements ReadRepository, WriteRepository, PageRepository
         $baseKey = str_replace('\\', '.', strtolower($classFQN));
         $this->cacheNamespace = sprintf('/%s/', $baseKey);
         $this->cacheNamespaceFindBy = sprintf('/%s/findby/', $baseKey);
+        $this->cacheNamespaceFindByDistinct = sprintf('/%s/finddistinct/', $baseKey);
         $this->cacheNamespacePage = sprintf('/%s/paginated/', $baseKey);
         $this->cacheNamespaceCount = sprintf('/%s/count/', $baseKey);
     }
@@ -146,6 +151,7 @@ class RepositoryCache implements ReadRepository, WriteRepository, PageRepository
         $this->cache->getItem($this->cacheNamespace.$id->id())->clear();
         $this->cache->getItem($this->cacheNamespacePage)->clear();
         $this->cache->getItem($this->cacheNamespaceFindBy)->clear();
+        $this->cache->getItem($this->cacheNamespaceFindByDistinct)->clear();
         $this->cache->getItem($this->cacheNamespaceCount)->clear();
 
         return $result;
@@ -215,5 +221,38 @@ class RepositoryCache implements ReadRepository, WriteRepository, PageRepository
         $this->cache->getItem($this->cacheNamespace)->clear();
 
         return $result;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function findByDistinct(
+        Fields $distinctFields,
+        Filter $filter = null,
+        Sort $sort = null,
+        Fields $fields = null
+    ) {
+        $cachedItem = $this->cache->getItem(
+            $this->cacheNamespaceFindByDistinct.md5(
+                serialize($filter).serialize($sort).serialize($fields).serialize($distinctFields)
+            )
+        );
+
+        if (!$cachedItem->isMiss() && null !== ($result = $cachedItem->get())) {
+            return $result;
+        }
+
+        $result = $this->repository->findByDistinct($distinctFields, $filter, $sort, $fields);
+        $cachedItem->set($result, $this->cacheTime);
+
+        return $result;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function transactional(callable $transaction)
+    {
+        $this->repository->transactional($transaction);
     }
 }
