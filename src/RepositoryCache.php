@@ -134,12 +134,10 @@ class RepositoryCache implements ReadRepository, WriteRepository, PageRepository
      */
     public function add(Identity $value)
     {
-        $entity = $this->repository->add($value);
+        $this->repository->add($value);
 
-        $cachedItem = $this->cache->getItem($this->cacheNamespace.$entity->id());
-        $cachedItem->set($entity, $this->cacheTime);
-
-        return $entity;
+        $cachedItem = $this->cache->getItem($this->cacheNamespace.$value->id());
+        $cachedItem->set($value, $this->cacheTime);
     }
 
     /**
