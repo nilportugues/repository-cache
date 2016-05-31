@@ -1,5 +1,5 @@
 # Repository Cache
-
+![PHP7 Tested](http://php-eye.com/badge/nilportugues/repository-cache/php70.svg)
 [![Build Status](https://travis-ci.org/PHPRepository/php-repository-cache.svg)](https://travis-ci.org/PHPRepository/php-repository-cache) [![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/nilportugues/php-repository-cache/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/nilportugues/php-repository-cache/?branch=master) [![SensioLabsInsight](https://insight.sensiolabs.com/projects/2941364f-c744-4680-ac53-a77f5328a46d/mini.png)](https://insight.sensiolabs.com/projects/2941364f-c744-4680-ac53-a77f5328a46d) [![Latest Stable Version](https://poser.pugx.org/nilportugues/repository-cache/v/stable)](https://packagist.org/packages/nilportugues/repository-cache) [![Total Downloads](https://poser.pugx.org/nilportugues/repository-cache/downloads)](https://packagist.org/packages/nilportugues/repository-cache) [![License](https://poser.pugx.org/nilportugues/repository-cache/license)](https://packagist.org/packages/nilportugues/repository-cache)
 [![Donate](https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif)](https://paypal.me/nilportugues)
 
