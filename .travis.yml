@@ -5,7 +5,9 @@ php:
 
 before_install:
   - /home/travis/.phpenv/versions/$(phpenv version-name)/bin/composer self-update
-    
+  - phpenv config-rm xdebug.ini
+  - before_script: echo "extension = redis.so" >> ~/.phpenv/versions/$(phpenv version-name)/etc/php.ini    
+  
 before_script:
   - composer install
 
