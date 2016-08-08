@@ -5,7 +5,7 @@ php:
 
 before_install:
  - /home/travis/.phpenv/versions/$(phpenv version-name)/bin/composer self-update
- - if [[ $TRAVIS_PHP_VERSION =~ (^7|^nightly) ]]; then wget https://github.com/nicolasff/phpredis/archive/php7.zip && unzip php7.zip && cd phpredis-php7 && phpize && ./configure && make && make install; fi 
+ - if [[ $TRAVIS_PHP_VERSION =~ (^7|^nightly) ]]; then wget https://github.com/nicolasff/phpredis/archive/php7.zip && unzip php7.zip && cd phpredis-php7 && phpize && ./configure && make && make install; cd .. fi
   
 before_script:
   - composer install
