@@ -102,7 +102,7 @@ class RepositoryCache implements ReadRepository, WriteRepository, PageRepository
      * @param $cachedItem
      * @param $result
      */
-    public function saveToCache($cachedItem, $result)
+    protected function saveToCache($cachedItem, $result)
     {
         $cachedItem->set($result);
         $cachedItem->expiresAfter($this->cacheTime);
