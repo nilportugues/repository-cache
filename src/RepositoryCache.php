@@ -8,11 +8,13 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
+
 namespace NilPortugues\Foundation\Infrastructure\Model\Repository\Cache;
 
 use NilPortugues\Foundation\Domain\Model\Repository\Contracts\Fields;
 use NilPortugues\Foundation\Domain\Model\Repository\Contracts\Filter;
 use NilPortugues\Foundation\Domain\Model\Repository\Contracts\Identity;
+use NilPortugues\Foundation\Domain\Model\Repository\Contracts\Page;
 use NilPortugues\Foundation\Domain\Model\Repository\Contracts\Pageable;
 use NilPortugues\Foundation\Domain\Model\Repository\Contracts\PageRepository;
 use NilPortugues\Foundation\Domain\Model\Repository\Contracts\ReadRepository;
@@ -23,47 +25,32 @@ use Stash\Interfaces\PoolInterface;
 
 class RepositoryCache implements ReadRepository, WriteRepository, PageRepository
 {
-    /**
-     * @var CacheItemPoolInterface
-     */
+    /** @var CacheItemPoolInterface */
     protected $cache;
-    /**
-     * @var ReadRepository|WriteRepository|PageRepository
-     */
+    /** @var ReadRepository|WriteRepository|PageRepository */
     protected $repository;
-    /**
-     * @var string
-     */
+    /** @var string */
     protected $cacheNamespace;
-    /**
-     * @var string
-     */
+    /** @var string */
     protected $cacheNamespaceFindBy;
-    /**
-     * @var string
-     */
+    /** @var string */
     protected $cacheNamespaceFindByDistinct;
-    /**
-     * @var string
-     */
+    /** @var string */
     protected $cacheNamespacePage;
-    /**
-     * @var string
-     */
+    /** @var string */
     protected $cacheNamespaceCount;
-
-    /**
-     * @var null
-     */
+    /** @var null */
     protected $cacheTime = null;
+    /** @var  string */
+    protected $cacheNamespaceExists;
 
     /**
      * RepositoryCache constructor.
      *
      * @param PoolInterface $cache
-     * @param mixed         $repository
-     * @param string        $classFQN
-     * @param null          $cacheTime
+     * @param mixed $repository
+     * @param string $classFQN
+     * @param null $cacheTime
      */
     public function __construct(PoolInterface $cache, $repository, $classFQN, $cacheTime = null)
     {
@@ -90,6 +77,7 @@ class RepositoryCache implements ReadRepository, WriteRepository, PageRepository
         $this->cacheNamespaceFindByDistinct = sprintf('/%s/finddistinct/', $baseKey);
         $this->cacheNamespacePage = sprintf('/%s/paginated/', $baseKey);
         $this->cacheNamespaceCount = sprintf('/%s/count/', $baseKey);
+        $this->cacheNamespaceExists = sprintf('/%s/exists/', $baseKey);
     }
 
     /**
@@ -97,34 +85,48 @@ class RepositoryCache implements ReadRepository, WriteRepository, PageRepository
      */
     public function find(Identity $id, Fields $fields = null)
     {
-        $key = $this->cacheNamespace.$id->id();
+        $key = $this->cacheNamespace . $id->id();
         $cachedItem = $this->cache->getItem($key);
 
-        if (!$cachedItem->isMiss() && null !== ($result = $cachedItem->get())) {
+        if ($cachedItem->isHit() && null !== ($result = $cachedItem->get())) {
             return $result;
         }
 
         $entity = $this->repository->find($id, $fields);
-        $cachedItem->set($entity, $this->cacheTime);
+        $this->saveToCache($cachedItem, $entity);
 
         return $entity;
     }
 
     /**
+     * @param $cachedItem
+     * @param $result
+     */
+    public function saveToCache($cachedItem, $result)
+    {
+        $cachedItem->set($result);
+        $cachedItem->expiresAfter($this->cacheTime);
+        $cachedItem->save();
+    }
+
+    /**
      * {@inheritdoc}
      */
-    public function findBy(Filter $filter = null, Sort $sort = null, Fields $fields = null)
+    public function findBy(Filter $filter = null, Sort $sort = null, Fields $fields = null) : array
     {
-        $cachedItem = $this->cache->getItem(
-            $this->cacheNamespaceFindBy.md5(serialize($filter).serialize($sort).serialize($fields))
-        );
+        $hashFilter = ($filter) ? serialize($filter->filters()) : '';
+        $hashSort = ($sort) ? serialize($sort->orders()) : '';
+        $hashFields = ($fields) ? serialize($fields->get()) : '';
+        $key = $this->cacheNamespaceFindBy . md5($hashFilter . $hashSort . $hashFields);
 
-        if (!$cachedItem->isMiss() && null !== ($result = $cachedItem->get())) {
+        $cachedItem = $this->cache->getItem($key);
+
+        if ($cachedItem->isHit() && null !== ($result = $cachedItem->get())) {
             return $result;
         }
 
         $result = $this->repository->findBy($filter, $sort, $fields);
-        $cachedItem->set($result, $this->cacheTime);
+        $this->saveToCache($cachedItem, $result);
 
         return $result;
     }
@@ -134,10 +136,13 @@ class RepositoryCache implements ReadRepository, WriteRepository, PageRepository
      */
     public function add(Identity $value)
     {
-        $this->repository->add($value);
+        $result = $this->repository->add($value);
+        $key = $this->cacheNamespace . $value->id();
 
-        $cachedItem = $this->cache->getItem($this->cacheNamespace.$value->id());
-        $cachedItem->set($value, $this->cacheTime);
+        $cachedItem = $this->cache->getItem($key);
+        $this->saveToCache($cachedItem, $value);
+
+        return $result;
     }
 
     /**
@@ -145,30 +150,39 @@ class RepositoryCache implements ReadRepository, WriteRepository, PageRepository
      */
     public function remove(Identity $id)
     {
-        $result = $this->repository->remove($id);
+        $this->repository->remove($id);
 
-        $this->cache->getItem($this->cacheNamespace.$id->id())->clear();
-        $this->cache->getItem($this->cacheNamespacePage)->clear();
-        $this->cache->getItem($this->cacheNamespaceFindBy)->clear();
-        $this->cache->getItem($this->cacheNamespaceFindByDistinct)->clear();
-        $this->cache->getItem($this->cacheNamespaceCount)->clear();
+        $keys = [
+            $this->cacheNamespace . $id->id(),
+            $this->cacheNamespacePage,
+            $this->cacheNamespaceFindBy,
+            $this->cacheNamespaceFindByDistinct,
+            $this->cacheNamespaceCount,
+            $this->cacheNamespaceExists,
+        ];
 
-        return $result;
+        foreach ($keys as $key) {
+            $item = $this->cache->getItem($key);
+            if ($item) {
+                $item->clear();
+            }
+        }
     }
 
     /**
      * {@inheritdoc}
      */
-    public function findAll(Pageable $pageable = null)
+    public function findAll(Pageable $pageable = null): Page
     {
-        $cachedItem = $this->cache->getItem($this->cacheNamespacePage.md5(serialize($pageable)));
+        $key = $this->cacheNamespacePage . md5(serialize($pageable));
+        $cachedItem = $this->cache->getItem($key);
 
-        if (!$cachedItem->isMiss() && null !== ($result = $cachedItem->get())) {
+        if ($cachedItem->isHit() && null !== ($result = $cachedItem->get())) {
             return $result;
         }
 
         $result = $this->repository->findAll($pageable);
-        $cachedItem->set($result, $this->cacheTime);
+        $this->saveToCache($cachedItem, $result);
 
         return $result;
     }
@@ -176,16 +190,17 @@ class RepositoryCache implements ReadRepository, WriteRepository, PageRepository
     /**
      * {@inheritdoc}
      */
-    public function count(Filter $filter = null)
+    public function count(Filter $filter = null) : int
     {
-        $cachedItem = $this->cache->getItem($this->cacheNamespaceCount.md5(serialize($filter)));
+        $key = $this->cacheNamespaceCount . md5(serialize($filter));
+        $cachedItem = $this->cache->getItem($key);
 
-        if (!$cachedItem->isMiss() && null !== ($result = $cachedItem->get())) {
+        if ($cachedItem->isHit() && null !== ($result = $cachedItem->get())) {
             return $result;
         }
 
         $result = $this->repository->count($filter);
-        $cachedItem->set($result, $this->cacheTime);
+        $this->saveToCache($cachedItem, $result);
 
         return $result;
     }
@@ -193,9 +208,19 @@ class RepositoryCache implements ReadRepository, WriteRepository, PageRepository
     /**
      * {@inheritdoc}
      */
-    public function exists(Identity $id)
+    public function exists(Identity $id) : bool
     {
-        return $this->repository->exists($id);
+        $key = $this->cacheNamespaceExists . $id->id();
+        $cachedItem = $this->cache->getItem($key);
+
+        if ($cachedItem->isHit() && null !== ($result = $cachedItem->get())) {
+            return $result;
+        }
+
+        $result = $this->repository->exists($id);
+        $this->saveToCache($cachedItem, $result);
+
+        return $result;
     }
 
     /**
@@ -203,11 +228,17 @@ class RepositoryCache implements ReadRepository, WriteRepository, PageRepository
      */
     public function addAll(array $values)
     {
-        $result = $this->repository->addAll($values);
+        $this->repository->addAll($values);
+        $this->cachePurge();
+    }
 
-        $this->cache->getItem($this->cacheNamespace)->clear();
-
-        return $result;
+    /**
+     * Clears all cache, as it's using the root key.
+     */
+    protected function cachePurge()
+    {
+        $item = $this->cache->getItem($this->cacheNamespace);
+        $item->clear();
     }
 
     /**
@@ -215,31 +246,30 @@ class RepositoryCache implements ReadRepository, WriteRepository, PageRepository
      */
     public function removeAll(Filter $filter = null)
     {
-        $result = $this->repository->removeAll($filter);
-
-        $this->cache->getItem($this->cacheNamespace)->clear();
-
-        return $result;
+        $this->repository->removeAll($filter);
+        $this->cachePurge();
     }
 
     /**
      * {@inheritdoc}
      */
-    public function findByDistinct(Fields $distinctFields, Filter $filter = null, Sort $sort = null) {
-        $cachedItem = $this->cache->getItem(
-            $this->cacheNamespaceFindByDistinct.md5(
-                serialize($filter).serialize($sort).serialize($distinctFields)
-            )
-        );
+    public function findByDistinct(Fields $distinctFields, Filter $filter = null, Sort $sort = null) : array
+    {
+        $hashFilter = ($filter) ? serialize($filter->filters()) : '';
+        $hashSort = ($sort) ? serialize($sort->orders()) : '';
+        $hashFields = ($distinctFields) ? serialize($distinctFields->get()) : '';
+        $key = $this->cacheNamespaceFindByDistinct . md5($hashFilter . $hashSort . $hashFields);
 
-        if (!$cachedItem->isMiss() && null !== ($result = $cachedItem->get())) {
-            return $result;
+        $cachedItem = $this->cache->getItem($key);
+
+        if ($cachedItem->isHit() && null !== ($result = $cachedItem->get())) {
+            return (array)$result;
         }
 
         $result = $this->repository->findByDistinct($distinctFields, $filter, $sort);
-        $cachedItem->set($result, $this->cacheTime);
+        $this->saveToCache($cachedItem, $result);
 
-        return $result;
+        return (array)$result;
     }
 
     /**
