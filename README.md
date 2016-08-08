@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/PHPRepository/repository-cache.svg)](https://travis-ci.org/PHPRepository/repository-cache) [![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/nilportugues/php-repository-cache/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/nilportugues/php-repository-cache/?branch=master) [![SensioLabsInsight](https://insight.sensiolabs.com/projects/2941364f-c744-4680-ac53-a77f5328a46d/mini.png)](https://insight.sensiolabs.com/projects/2941364f-c744-4680-ac53-a77f5328a46d) [![Latest Stable Version](https://poser.pugx.org/nilportugues/repository-cache/v/stable)](https://packagist.org/packages/nilportugues/repository-cache) [![Total Downloads](https://poser.pugx.org/nilportugues/repository-cache/downloads)](https://packagist.org/packages/nilportugues/repository-cache) [![License](https://poser.pugx.org/nilportugues/repository-cache/license)](https://packagist.org/packages/nilportugues/repository-cache)
 [![Donate](https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif)](https://paypal.me/nilportugues)
 
-Repository to be used with **[nilportugues/repository](https://github.com/nilportugues/php-repository)** implementing a cache layer using [StashPHP](http://www.stashphp.com/). 
+Repository to be used with *[nilportugues/repository](https://github.com/nilportugues/php-repository)* implementing a PSR-6 cache layer using [StashPHP](http://www.stashphp.com/).
 
 ## Installation
 
@@ -13,6 +13,23 @@ Use [Composer](https://getcomposer.org) to install the package:
 $ composer require nilportugues/repository-cache
 ```
 
+## Cache Drivers
+
+Repository Cache supports all of Stash's drivers:
+
+- **System**
+    - FileSystem
+    - Sqlite (requires php-pdo-sqlite extension)
+    - APC (requires php-apcu extension)
+- **Server**
+    - Memcached (requires php-memcache or php-memcached extensions)
+    - Redis (requires php-redis extension)
+- **Specialized**
+    - Ephemeral (in memory cache)
+    - Composite
+
+For more information please check out [Stash's documentation](http://www.stashphp.com/Drivers.html).
+
 ## Usage
 
 ```php
@@ -21,37 +38,32 @@ use Stash\Driver\Ephemeral;
 use Stash\Driver\Memcache;
 use Stash\Pool;
 
+//---------------------------------------------------------------------------
+// Definition of cache drivers
+//---------------------------------------------------------------------------
 $memcached = new Memcache();
 $memcached->setOptions(array('servers' => array('127.0.0.1', '11211')));
 
 $cachePool = new Pool();
-$cachePool->setDriver(new Ephemeral());
-$cachePool->setDriver($memcached);
+$cachePool->setDriver(new Ephemeral()); //hit in memory first as always will be faster
+$cachePool->setDriver($memcached); //hit memcached second.
 
-/**
- * MySQLColorRepository is an implementation of:
- *  - NilPortugues\Foundation\Domain\Model\Repository\Contracts\PageRepository
- *  - NilPortugues\Foundation\Domain\Model\Repository\Contracts\ReadRepository
- *  - NilPortugues\Foundation\Domain\Model\Repository\Contracts\WriteRepository
- */
-$repository = new MySQLColorRepository($data);
-$cacheRepository = new RepositoryCache($cachePool, $repository, Color::class, '3600');
+$ttl = 3600; //time in second for cache to expire.
+$cacheNamespace = Color::class;
 
-/**
- * Color Repository is a wrapper class implementing the same interfaces
- * as the previously defined MySQLColorRepository.
- */
-$repository = new ColorRepository($cacheRepository);
+//---------------------------------------------------------------------------
+// Adding cache to an existing repository
+//---------------------------------------------------------------------------
+$sqlRepository = new MySQLColorRepository();
+$repository = new RepositoryCache($cachePool, $repository, $cacheNamespace, $ttl);
 
-//Now use as normal... 
-
+//---------------------------------------------------------------------------
+// Now use as normal... 
+//---------------------------------------------------------------------------
 $color = new Color('#@@@@@@', 'New color');
 $repository->add($color);
-
 $repository->find(ColorId('#@@@@@@')); //should hit cache and return an instance of Color.
 ```
-
-
 
 ## Quality
 
